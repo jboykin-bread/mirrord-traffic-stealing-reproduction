@@ -81,7 +81,7 @@ $ mirrord-3.118.0 exec --context kind-mirrord-stealing-test -n color-server -e \
     ✓ config summary
       2024/10/01 15:20:54 INFO Starting server on :8000
 ```
-Requests to `color-server:8000` will either time out or will get a return from the Pod, rather 
+Requests to `color-server:8000` will either time out or will get a response from the Pod, rather 
 than the local service. You can validate this in the temp shell:
 ```shell
  test-shell  ~  curl -m 10 -vv http://color-server:8000/color
