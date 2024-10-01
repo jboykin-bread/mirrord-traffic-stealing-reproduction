@@ -60,7 +60,8 @@ In another terminal window, build the go service, and run mirrord
 ```shell
 $ go build -o color-server
 
-$ mirrord-3.118.0 exec --context kind-mirrord-stealing-test -n color-server -e --steal --target pod/color-server-77ff58464f-xd2tg -- ./color-server -color=green
+$ mirrord-3.118.0 exec --context kind-mirrord-stealing-test -n color-server -e \
+  --steal --target pod/color-server-77ff58464f-xd2tg -- ./color-server -color=green
 * service mesh detected: istio
 * Running binary "./color-server" with arguments: ["-color=green"].
 * mirrord will target: pod/color-server-77ff58464f-xd2tg, no configuration file was loaded
@@ -77,7 +78,8 @@ $ mirrord-3.118.0 exec --context kind-mirrord-stealing-test -n color-server -e -
       ✓ operator not found
       ✓ container created
       ✓ container is ready
-    ✓ config summary                                                                                          2024/10/01 15:20:54 INFO Starting server on :8000
+    ✓ config summary
+      2024/10/01 15:20:54 INFO Starting server on :8000
 ```
 Requests to `color-server:8000` will either time out or will get a return from the Pod, rather 
 than the local service. You can validate this in the temp shell:
