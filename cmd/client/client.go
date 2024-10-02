@@ -23,7 +23,6 @@ func main() {
 	for {
 		// Create a context with a 5-second timeout for the request
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
 
 		// Make the gRPC request
 		resp, err := client.GetColor(ctx, &pb.ColorRequest{})
@@ -33,6 +32,9 @@ func main() {
 		} else {
 			log.Printf("Color: %s", resp.Color)
 		}
+
+		// Explicitly cancel the context to avoid memory leaks
+		cancel()
 
 		// Wait for 2 seconds before the next request
 		time.Sleep(2 * time.Second)
