@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+option go_package = "./proto";
+
+service ColorService {
+  rpc GetColor(ColorRequest) returns (ColorResponse);
+}
+
+message ColorRequest {}
+
+message ColorResponse {
+  string color = 1;
+}

@@ -33,27 +33,34 @@ Open up a test shell with networking tools, and hit the service
 ```shell
 $ kubectl --context kind-mirrord-stealing-test -n color-server run test-shell --rm -i --tty --image nicolaka/netshoot
 
- test-shell  ~  curl -m 10 -vv http://color-server:8000/color
-* Host color-server:8000 was resolved.
-* IPv6: (none)
-* IPv4: 10.96.153.133
-*   Trying 10.96.153.133:8000...
-* Connected to color-server (10.96.153.133) port 8000
-> GET /color HTTP/1.1
-> Host: color-server:8000
-> User-Agent: curl/8.7.1
-> Accept: */*
-> 
-* Request completely sent off
-< HTTP/1.1 200 OK
-< content-type: text/plain
-< date: Tue, 01 Oct 2024 19:16:49 GMT
-< content-length: 4
-< x-envoy-upstream-service-time: 4
-< server: envoy
-< 
-* Connection #0 to host color-server left intact
-blue
+ test-shell  ~  grpcurl -vv -max-time 5 -plaintext color-server:9000 ColorService.GetColor
+
+Resolved method descriptor:
+rpc GetColor ( .ColorRequest ) returns ( .ColorResponse );
+
+Request metadata to send:
+(empty)
+
+Response headers received:
+content-type: application/grpc
+date: Wed, 02 Oct 2024 16:42:54 GMT
+server: envoy
+x-envoy-upstream-service-time: 0
+
+Estimated response size: 6 bytes
+
+Response contents:
+{
+  "color": "blue"
+}
+
+Response trailers received:
+(empty)
+Sent 0 requests and received 1 response
+Timing Data: 7.658416ms
+  Dial: 2.052083ms
+    BlockingDial: 2.043583ms
+  InvokeRPC: 4.645458ms
 ```
 
 In another terminal window, build the go service, and run mirrord
@@ -81,52 +88,20 @@ $ mirrord-3.118.0 exec --context kind-mirrord-stealing-test -n color-server -e \
     ✓ config summary
       2024/10/01 15:20:54 INFO Starting server on :8000
 ```
-Requests to `color-server:8000` will either time out or will get a response from the Pod, rather 
-than the local service. You can validate this in the temp shell:
-```shell
- test-shell  ~  curl -m 10 -vv http://color-server:8000/color
-* Host color-server:8000 was resolved.
-* IPv6: (none)
-* IPv4: 10.96.153.133
-*   Trying 10.96.153.133:8000...
-* Connected to color-server (10.96.153.133) port 8000
-> GET /color HTTP/1.1
-> Host: color-server:8000
-> User-Agent: curl/8.7.1
-> Accept: */*
-> 
-* Request completely sent off
-* Operation timed out after 10010 milliseconds with 0 bytes received
-* Closing connection
-curl: (28) Operation timed out after 10010 milliseconds with 0 bytes received
 
- test-shell  ~  curl -m 10 -vv http://color-server:8000/color
-* Host color-server:8000 was resolved.
-* IPv6: (none)
-* IPv4: 10.96.153.133
-*   Trying 10.96.153.133:8000...
-* Connected to color-server (10.96.153.133) port 8000
-> GET /color HTTP/1.1
-> Host: color-server:8000
-> User-Agent: curl/8.7.1
-> Accept: */*
-> 
-* Request completely sent off
-< HTTP/1.1 200 OK
-< content-type: text/plain
-< date: Tue, 01 Oct 2024 19:25:05 GMT
-< content-length: 4
-< x-envoy-upstream-service-time: 1
-< server: envoy
-< 
-* Connection #0 to host color-server left intact
-blue# 
+🐛 All grpc requests to color-server:9000 begin to fail
+
+```shell
+ test-shell  ~  grpcurl -vv -max-time 5 -plaintext color-server:9000 ColorService.GetColor
+Error invoking method "ColorService.GetColor": rpc error: code = DeadlineExceeded desc = failed to query for service descriptor "ColorService": context deadline exceeded
 ```
 
 Note that localhost requests work fine while mirrord is running.
 ```shell
-❯ curl localhost:8000/color
-green
+❯ grpcurl -plaintext localhost:9000 ColorService.GetColor
+{
+  "color": "green"
+}
 ```
 
 Stop the mirrord session locally and exit the 'test-shell'. 
@@ -157,27 +132,33 @@ Start up mirrord, and traffic stealing will work now that istio is gone.
       ✓ operator not found
       ✓ container created
       ✓ container is ready
-    ✓ config summary                                                                2024/10/01 15:46:43 INFO Starting server on :8000
-2024/10/01 15:46:47 INFO HTTP Request method=GET path=/color protocol=HTTP/1.1 remote_addr=10.244.0.6:37620
+    ✓ config summary                                              
+    2024/10/02 16:47:56 INFO Starting gRPC server on :9000
+    2024/10/02 12:46:20 INFO gRPC Request: GetColor
 
+ test-shell  ~  grpcurl -vv -max-time 5 -plaintext color-server:9000 ColorService.GetColor
 
- test-shell-again  ~  curl -m 10 -vv http://color-server:8000/color
-* Host color-server:8000 was resolved.
-* IPv6: (none)
-* IPv4: 10.96.153.133
-*   Trying 10.96.153.133:8000...
-* Connected to color-server (10.96.153.133) port 8000
-> GET /color HTTP/1.1
-> Host: color-server:8000
-> User-Agent: curl/8.7.1
-> Accept: */*
-> 
-* Request completely sent off
-< HTTP/1.1 200 OK
-< Content-Type: text/plain
-< Date: Tue, 01 Oct 2024 19:46:52 GMT
-< Content-Length: 5
-< 
-* Connection #0 to host color-server left intact
-green#
+Resolved method descriptor:
+rpc GetColor ( .ColorRequest ) returns ( .ColorResponse );
+
+Request metadata to send:
+(empty)
+
+Response headers received:
+content-type: application/grpc
+
+Estimated response size: 7 bytes
+
+Response contents:
+{
+  "color": "green"
+}
+
+Response trailers received:
+(empty)
+Sent 0 requests and received 1 response
+Timing Data: 96.160959ms
+  Dial: 5.279ms
+    BlockingDial: 5.273417ms
+  InvokeRPC: 86.940834ms
 ```

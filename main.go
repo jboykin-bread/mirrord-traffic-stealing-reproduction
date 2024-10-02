@@ -1,34 +1,50 @@
 package main
 
 import (
+	"context"
 	"flag"
+	"net"
+
+	pb "github.com/jboykin-bread/mirrord-traffic-stealing-reproduction/proto"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
+
 	"log/slog"
-	"net/http"
 )
+
+// Server is used to implement the gRPC ColorService.
+type Server struct {
+	pb.UnimplementedColorServiceServer
+	color string
+}
+
+// GetColor implements the GetColor RPC for the gRPC service.
+func (s *Server) GetColor(ctx context.Context, in *pb.ColorRequest) (*pb.ColorResponse, error) {
+	slog.Info("gRPC Request: GetColor")
+	return &pb.ColorResponse{Color: s.color}, nil
+}
 
 func main() {
 	// flag for color
 	color := flag.String("color", "blue", "the color to return in the response")
 	flag.Parse()
 
-	// http handler
-	http.HandleFunc("/color", func(w http.ResponseWriter, r *http.Request) {
-		slog.Info("HTTP Request",
-			"method", r.Method,
-			"path", r.URL.Path,
-			"protocol", r.Proto,
-			"remote_addr", r.RemoteAddr,
-		)
+	// Set up the gRPC server on port 9000
+	lis, err := net.Listen("tcp", ":9000")
+	if err != nil {
+		slog.Error("Failed to listen on port 9000", "error", err)
+		panic(err)
+	}
 
-		w.Header().Set("Content-Type", "text/plain")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(*color))
-	})
+	grpcServer := grpc.NewServer()
+	reflection.Register(grpcServer)
+	s := &Server{color: *color}
+	pb.RegisterColorServiceServer(grpcServer, s)
 
-	// start http server
-	slog.Info("Starting server on :8000")
-	if err := http.ListenAndServe(":8000", nil); err != nil {
-		slog.Error("Error starting server", "error", err)
+	slog.Info("Starting gRPC server on :9000")
+	if err := grpcServer.Serve(lis); err != nil {
+		slog.Error("Failed to serve gRPC", "error", err)
 		panic(err)
 	}
 }
